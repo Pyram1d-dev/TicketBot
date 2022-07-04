@@ -1,4 +1,5 @@
 {
+	"cooldownHours":12,
 	"roleIDs": {
 		"announcer":"806664023101538344", 
 		"moderator":"792488887699636274"
@@ -31,6 +32,24 @@
 		"cancelled": {
 			"color": "#757575",
 			"resultText": "This request was cancelled by the user."
+		}
+	},
+	"voteEmojiData": {
+		"accept": {
+			"name":"✅",
+			"custom":false
+		},
+		"decline": {
+			"name":"❌",
+			"custom":false
+		},
+		"forceAccept": {
+			"name":"gamerstud",
+			"custom":true
+		},
+		"ban": {
+			"name":"youshould",
+			"custom":true
 		}
 	}
 }

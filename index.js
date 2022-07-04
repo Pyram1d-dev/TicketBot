@@ -8,7 +8,7 @@ const { REST } = require('@discordjs/rest');
 const { MessageEmbed } = require('discord.js');
 const { Routes } = require('discord-api-types/v9');
 const { token, clientId, guildId } = require('./data/config.json');
-const { roleIDs, channelIDs, embedStyles } = require('./data/botData.json');
+const { roleIDs, channelIDs, embedStyles, voteEmojiData, cooldownHours } = require('./data/botData.json');
 const modCooldowns = new jsoning('modcooldowns.json');
 
 const commands = [
@@ -107,11 +107,22 @@ client.on('interactionCreate', async interaction => {
                 .setDescription(`\"${desc}\"`)
                 .setTimestamp(timestamp);
             let msg = await channel.send({embeds: [coolEmbed]}).catch(console.error);
-            
-            let stud = client.emojis.cache.find(emoji => emoji.name === "gamerstud");
-            let youshould = client.emojis.cache.find(emoji => emoji.name === "youshould");
-            msg.react('✅').then(() => msg.react('❌').then(() => msg.react(stud).then(() => msg.react(youshould)))).catch(console.error);
-            const filter = (reaction, user) => ['✅', '❌', 'gamerstud', 'youshould'].includes(reaction.emoji.name) && !user.bot;
+            if (voteEmojis.accept == null)
+            {
+                for (const action in voteEmojiData) {
+                    if (Object.hasOwnProperty.call(voteEmojiData, action)) {
+                        const emojiData = voteEmojiData[action];
+                        voteEmojis[action] = emojiData.custom ? client.emojis.cache.find(emoji => emoji.name === emojiData.name) : emojiData.name;
+                        console.log(`Setting ${action} to ${voteEmojis[action]}`);
+                    }
+                }
+            }
+            let names = [];
+            Object.values(voteEmojiData).forEach(data => {
+                names.push(data.name);
+            });
+            msg.react(voteEmojis.accept).then(() => msg.react(voteEmojis.decline).then(() => msg.react(voteEmojis.forceAccept).then(() => msg.react(voteEmojis.ban)))).catch(console.error);
+            const filter = (reaction, user) => names.includes(reaction.emoji.name) && !user.bot;
             // 1,200,000 ms = 20 mins
 
             const collector = msg.createReactionCollector({ filter, time: 1200000 });
@@ -123,12 +134,10 @@ client.on('interactionCreate', async interaction => {
 
                 let votesRequired = 3 - Math.min(Math.floor((Date.now() - timestamp) / 60000 / 5), 2);
 
-                if (!(['✅', '❌', 'youshould'].includes(reaction.emoji.name) && reactionCount >= votesRequired) && reaction.emoji.name != 'gamerstud')
+                if (!([voteEmojiData.accept.name, voteEmojiData.decline.name, voteEmojiData.ban.name].includes(reaction.emoji.name) && reactionCount >= votesRequired) && reaction.emoji.name != voteEmojiData.forceAccept.name)
                     return;
 
-                let forceAccepted = reaction.emoji.name === 'gamerstud';
-
-                let cooldownHours = 12;
+                let forceAccepted = reaction.emoji.name === voteEmojiData.forceAccept.name;
 
                 if (modCooldowns.has(reactor.id) && Date.now() - modCooldowns.get(reactor.id) <= cooldownHours * 60 * 60 * 1000 && forceAccepted)
                 {
@@ -153,8 +162,8 @@ client.on('interactionCreate', async interaction => {
                 msg.reactions.removeAll();
                 switch (reaction.emoji.name)
                 {
-                    case 'gamerstud':
-                    case '✅':
+                    case voteEmojiData.forceAccept.name:
+                    case voteEmojiData.accept.name:
                         console.log("Yeah :)");
                         setEmbedStyle(resultEmbed, user, reactor, desc, `${forceAccepted ? "force" : ""}approved`);
                         user.send(`Your request to announce \"${desc}\" has been approved!`);
@@ -163,7 +172,7 @@ client.on('interactionCreate', async interaction => {
                         if (forceAccepted)
                             modCooldowns.set(reactor.id, Date.now());
                         break;
-                    case 'youshould':
+                    case voteEmojiData.ban.name:
                         console.log('stfu >>:((');
                         setEmbedStyle(resultEmbed, user, reactor, desc, "banned");
                         let banTime = 600;
@@ -234,8 +243,14 @@ async function fetchChannel(id)
     return await client.channels.cache.get(id);
 }
 
+var voteEmojis = {
+    "accept":null,
+    "decline":null,
+    "forceAccept":null,
+    "ban":null
+}
+
 client.once('ready', async () => {
-    console.log('Awesome');
     client.user.setActivity("Type /request");
 });
 
