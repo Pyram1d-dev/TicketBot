@@ -1,0 +1,23 @@
+{
+    "token":"OTkwODQwODM2NDExNTAyNjM0.GF1S03.Rk9flAl0GoesIvCIzT5VFzy4duBKK3cB6eCgdM",
+	"clientId": "990840836411502634",
+	"guildId": "792488136470429726",
+	"roleIDs": {
+		"announcer":"806664023101538344", 
+		"moderator":"792488887699636274"
+	},
+	"channelIDs": {
+		"ticketChannel":"991082605631897620", 
+		"announcements":"792489258492624956"
+	},
+	"embedStyles": {
+		"approved": {
+			"color": "#3dfc03",
+			"resultText": "This request was accepted."
+		},
+		"banned": {
+			"color": "#f70c0c",
+			"resultText": "This request was stupid and we elected to ban {username} from requesting."
+		}
+	}
+}
