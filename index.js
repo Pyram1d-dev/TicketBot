@@ -7,7 +7,8 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { REST } = require('@discordjs/rest');
 const { MessageEmbed } = require('discord.js');
 const { Routes } = require('discord-api-types/v9');
-const { token, clientId, guildId, roleIDs, channelIDs, embedStyles } = require('./config.json');
+const { token, clientId, guildId } = require('./data/config.json');
+const { roleIDs, channelIDs, embedStyles } = require('./data/botData.json');
 const modCooldowns = new jsoning('modcooldowns.json');
 
 const commands = [
