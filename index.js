@@ -184,8 +184,8 @@ client.on('interactionCreate', async interaction => {
                         setEmbedStyle(resultEmbed, user, reactor, desc, "denied");
                         user.send(`Your request to announce \"${desc}\" was denied. If you wanted to respond to an announcement, just discuss it in another chat.`);
                 }
-                collector.stop();
                 endedOperation = true;
+                collector.stop();
                 delete usersRequested[user.id];
                 msg.edit({embeds: [resultEmbed]}).catch(console.error);
             });
