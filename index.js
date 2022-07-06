@@ -203,7 +203,7 @@ client.on('interactionCreate', async interaction => {
                 endedOperation = true;
                 msg.reactions.removeAll();
                 const cancelledEmbed = new MessageEmbed()
-                setEmbedStyle(cancelledEmbed, user, reactor, desc, "cancelled");
+                setEmbedStyle(cancelledEmbed, user, null, desc, "cancelled");
                 msg.edit({embeds: [cancelledEmbed]}).catch(console.error);
             }
             break;
