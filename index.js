@@ -73,6 +73,9 @@ function setEmbedStyle(embed, user, reactor, desc, style, reaction)
             {
                 if (coollist.length != 2)
                     allreactors += ", ";
+                else
+                    allreactors += " "
+
                 if (i + 1 == coollist.length - 1)
                     allreactors += "and ";
             }
