@@ -1,12 +1,19 @@
 {
+	"voteTime": 1200000,
 	"cooldownHours":12,
+	"qotdNonoIDs": ["521415871336284162"],
+	"customQotdAcceptTimes": {
+		"929440517010387045": 300000
+	},
 	"roleIDs": {
+		"question":"1115182370224615514", 
 		"announcer":"806664023101538344", 
 		"moderator":"792488887699636274"
 	},
 	"channelIDs": {
-		"ticketChannel":"991082605631897620", 
-		"announcements":"792489258492624956"
+		"ticketChannel":"991082605631897620",
+		"announcements":"792489258492624956",
+		"questions":"870485727417352252"
 	},
 	"embedStyles": {
 		"forceapproved": {

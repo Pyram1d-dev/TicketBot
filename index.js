@@ -8,7 +8,7 @@ const { REST } = require('@discordjs/rest');
 const { MessageEmbed } = require('discord.js');
 const { Routes } = require('discord-api-types/v9');
 const { token, clientId, guildId } = require('./data/config.json');
-const { roleIDs, channelIDs, embedStyles, voteEmojiData, cooldownHours } = require('./data/botData.json');
+const { roleIDs, channelIDs, embedStyles, voteEmojiData, cooldownHours, qotdNonoIDs, customQotdAcceptTimes, voteTime } = require('./data/botData.json');
 const modCooldowns = new jsoning('modcooldowns.json');
 
 const commands = [
@@ -19,6 +19,16 @@ const commands = [
             option.setName('description')
             .setDescription('Describe what you will announce. ATTACHMENTS ARE NOT ACCEPTED, SIMPLY DESCRIBE WHAT YOU WILL POST!!')
             .setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('requestqotd')
+        .setDescription('Request permission to post a question of the day')
+        .addStringOption(option =>
+            option.setName('description')
+            .setDescription('What will you ask brudda')
+            .setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('cancelqotdrequest')
+        .setDescription('Cancel a previously-made QOTD request'),
     new SlashCommandBuilder()
         .setName('cancelrequest')
         .setDescription('Cancel a previously-made request')
@@ -42,6 +52,7 @@ const rest = new REST({ version: '9' }).setToken(token);
 })();
 
 let usersRequested = {};
+let usersRequestedQotd = {};
 let cooldowns = {};
 
 function truncateFloat(num, precision)
@@ -49,7 +60,7 @@ function truncateFloat(num, precision)
     return Math.floor(num * Math.pow(10, precision)) / Math.pow(10, precision);
 }
 
-function setEmbedStyle(embed, user, reactor, desc, style, reaction)
+function setEmbedStyle(embed, user, reactor, desc, style, reaction, qotd)
 {
     let styleData = embedStyles[style];
     let resultText = styleData.resultText;
@@ -83,9 +94,9 @@ function setEmbedStyle(embed, user, reactor, desc, style, reaction)
         resultText = resultText.replace('{allreactors}', allreactors);
     }
     embed.setColor(styleData.color)
-        .setTitle('Announcement Request')
+        .setTitle(!qotd ? 'Announcement Request' : '⚠ DOMINIC QUESTION REQUEST ⚠')
         .setAuthor({name: user.username, iconURL: user.avatarURL()})
-        .setDescription(`\"${desc}\"\n\n\`${resultText}\``)
+        .setDescription(`\"${desc}\"\n\`${resultText}\``)
         .setTimestamp(Date.now());
 }
 
@@ -95,10 +106,14 @@ client.on('interactionCreate', async interaction => {
     let desc = interaction.options.getString('description');
     let user = interaction.user;
     let member = interaction.member;
-    switch (interaction.commandName)
+    let cName = interaction.commandName;
+    switch (cName)
     {
-        case 'request':
-            if (user.id in usersRequested)
+        case 'requestqotd':
+        case 'request': {
+            let qotd = cName == 'requestqotd';
+            let reqTable = qotd ? usersRequestedQotd : usersRequested;
+            if (user.id in reqTable)
             {
                 await interaction.reply({content: `You already requested permission! You can cancel your previous request by typing /cancelrequest.`, ephemeral: true}).catch(console.error);
                 break;
@@ -121,17 +136,25 @@ client.on('interactionCreate', async interaction => {
                 }
                 delete cooldowns[user.id];
             }
+            await interaction.reply({content: `Permission has been requested, please wait... (type /cancelrequest to cancel)\n> \"${desc}\"`, ephemeral: true}).catch(console.error);
+            if (qotd && !qotdNonoIDs.includes(user.id)) {
+                new Promise(resolve => setTimeout(resolve, user.id in customQotdAcceptTimes ? customQotdAcceptTimes[user.id] : Math.random() * 50000 + 10000))
+                    .then(async () => {
+                        interaction.followUp({content: `Your request to ask \"${desc}\" has been approved! <@${user.id}>`, ephemeral: true});
+                        let daRole = await fetchRole(member.guild, roleIDs.question);
+                        member.roles.add(daRole);
+                    }).catch(console.error);
+                break;
+            }
             let endedOperation = false;
             let timestamp = Date.now()
-            usersRequested[user.id] = {timestamp: timestamp};
-            await interaction.reply({content: `Permission has been requested, please wait... (type /cancelrequest to cancel)\n> \"${desc}\"`, ephemeral: true}).catch(console.error);
+            reqTable[user.id] = {timestamp: timestamp};
             const coolEmbed = new MessageEmbed()
-                .setColor('#0099ff')
-                .setTitle('Announcement Request')
+                .setColor(qotd ? '#ffd000' : '#0099ff')
+                .setTitle(!qotd ? 'Announcement Request' : '⚠ DOMINIC QUESTION REQUEST ⚠')
                 .setAuthor({name: user.username, iconURL: user.avatarURL()})
-                .setDescription(`\"${desc}\"`)
-                .setTimestamp(timestamp);
-            let msg = await channel.send({embeds: [coolEmbed]}).catch(console.error);
+                .setDescription(`\"${desc}\"\n\nTicket expires <t:${Math.floor((timestamp + voteTime) / 1000)}:R>`);
+            const msg = await channel.send({embeds: [coolEmbed]}).catch(console.error);
             if (voteEmojis.accept == null)
             {
                 for (const action in voteEmojiData) {
@@ -149,7 +172,7 @@ client.on('interactionCreate', async interaction => {
             msg.react(voteEmojis.accept).then(() => msg.react(voteEmojis.decline).then(() => msg.react(voteEmojis.forceAccept).then(() => msg.react(voteEmojis.ban)))).catch(console.error);
             const filter = (reaction, user) => names.includes(reaction.emoji.name) && !user.bot;
 
-            let banTime = 600;
+            let benTime = 600;
 
             var penis = async function(action, reactor, reaction)
             {
@@ -158,32 +181,41 @@ client.on('interactionCreate', async interaction => {
                 switch (action)
                 {
                     case "Force Accept":
-                    case "Accept":
+                    case "Accept": {
                         console.log("Yeah :)");
-                        setEmbedStyle(resultEmbed, user, reactor, desc, `${action === "Force Accept" ? "force" : ""}approved`, reaction);
-                        user.send(`Your request to announce \"${desc}\" has been approved!`);
-                        let announceRole = await fetchRole(member.guild, roleIDs.announcer);
-                        member.roles.add(announceRole);
+                        setEmbedStyle(resultEmbed, user, reactor, desc, `${action === "Force Accept" ? "force" : ""}approved`, reaction, qotd);
+                        let rep = `Your request to ${qotd ? 'ask' : 'announce'} \"${desc}\" has been approved!`;
+                        interaction.followUp({content: rep + ` <@${user.id}>`, ephemeral: true});
+                        user.send(rep);
+                        let daRole = await fetchRole(member.guild, qotd ? roleIDs.question : roleIDs.announcer);
+                        member.roles.add(daRole);
                         if (action === "Force Accept")
                             modCooldowns.set(reactor.id, Date.now());
                         break;
-                    case 'Ban':
+                    }
+                    case 'Ban': {
                         console.log('stfu >>:((');
-                        setEmbedStyle(resultEmbed, user, reactor, desc, "banned", reaction);
-                        user.send(`Your request was fucking stupid and you are unable to request for ${banTime / 60} minutes because of it. #ripbozo`);
-                        cooldowns[user.id] = {startTime: Date.now(), banTime: banTime};
+                        setEmbedStyle(resultEmbed, user, reactor, desc, "banned", reaction, qotd);
+                        let rep = `Your request was fucking stupid and you are unable to submit another ticket for ${benTime / 60} minutes because of it. #ripbozo`;
+                        interaction.followUp({content: rep + ` <@${user.id}>`, ephemeral: true});
+                        user.send(rep);
+                        cooldowns[user.id] = {startTime: Date.now(), banTime: benTime};
                         break;
-                    default:
+                    }
+                    default: {
                         console.log("No >:(");
-                        setEmbedStyle(resultEmbed, user, reactor, desc, "denied", reaction);
-                        user.send(`Your request to announce \"${desc}\" was denied. If you wanted to respond to an announcement, just discuss it in another chat.`);
+                        setEmbedStyle(resultEmbed, user, reactor, desc, "denied", reaction, qotd);
+                        let rep = `Your request to ${qotd ? 'ask' : 'announce'} \"${desc}\" was denied.`;
+                        interaction.followUp({content: rep + ` <@${user.id}>`, ephemeral: true});
+                        user.send(rep);
+                    }
                 }
-                delete usersRequested[user.id];
+                delete reqTable[user.id];
                 msg.edit({embeds: [resultEmbed]}).catch(console.error);
             }
 
             // 1,200,000 ms = 20 mins
-            const collector = msg.createReactionCollector({ filter, time: 1200000 });
+            const collector = msg.createReactionCollector({ filter, time: voteTime });
 
             collector.on('collect', async (reaction, reactor) => {
                 if (endedOperation) return;
@@ -233,8 +265,8 @@ client.on('interactionCreate', async interaction => {
             });
 
             collector.on('end', collected => {
-                if (endedOperation || !(user.id in usersRequested)) return;
-                delete usersRequested[user.id];
+                if (endedOperation || !(user.id in reqTable)) return;
+                delete reqTable[user.id];
                 let col = Array.from(collected.values());
                 let allSameVal = true;
                 let mostReactions = null;
@@ -258,7 +290,7 @@ client.on('interactionCreate', async interaction => {
                 if (allSameVal)
                 {
                     const notCoolEmbed = new MessageEmbed()
-                    setEmbedStyle(notCoolEmbed, user, null, desc, "expired");
+                    setEmbedStyle(notCoolEmbed, user, null, desc, "expired", null, qotd);
                     msg.edit({embeds: [notCoolEmbed]}).catch(console.error);
                 }
                 else
@@ -278,38 +310,54 @@ client.on('interactionCreate', async interaction => {
                 }
             });
 
-            usersRequested[user.id]['cancel'] = () => {
+            reqTable[user.id]['cancel'] = () => {
                 endedOperation = true;
                 msg.reactions.removeAll();
                 const cancelledEmbed = new MessageEmbed()
-                setEmbedStyle(cancelledEmbed, user, null, desc, "cancelled");
+                setEmbedStyle(cancelledEmbed, user, null, desc, "cancelled", null, qotd);
                 msg.edit({embeds: [cancelledEmbed]}).catch(console.error);
             }
             break;
-        case 'cancelrequest':
-            if (!(user.id in usersRequested))
+        }
+        case 'cancelqotdrequest':
+        case 'cancelrequest': {
+            const qotd = cName == 'cancelqotdrequest';
+            const reqTable = qotd ? usersRequestedQotd : usersRequested;
+            if (!(user.id in reqTable))
             {
                 await interaction.reply({content: 'You don\'t have a pending request!', ephemeral: true}).catch(console.error);
                 break;
             }
-            let timeDifference = Date.now() - usersRequested[user.id]['timestamp'];
-            console.log(Date.now() - usersRequested[user.id]['timestamp'])
+            let timeDifference = Date.now() - reqTable[user.id]['timestamp'];
+            console.log(Date.now() - reqTable[user.id]['timestamp'])
             if (timeDifference < 10000)
             {
                 await interaction.reply({content: `You must wait at least ${Math.floor((10 - ((timeDifference + Number.MIN_VALUE) / 1000)) * 10) / 10} more seconds before cancelling your request.`, ephemeral: true}).catch(console.error);
                 break;
             }
-            usersRequested[user.id]['cancel']();
-            delete usersRequested[user.id];
+            reqTable[user.id]['cancel']();
+            delete reqTable[user.id];
             await interaction.reply({content: `Your request has been cancelled.`, ephemeral: true}).catch(console.error);
+            break;
+        }
     }
 });
 
 client.on('messageCreate', async message =>{
-    if (message.channelId != channelIDs.announcements) return;
-    let announcerRole = await fetchRole(message.guild, roleIDs.announcer)
-    console.log(`No more announcer for ${message.member.user.username}`);
-    message.member.roles.remove(announcerRole).catch(console.error);
+    switch (message.channelId) {
+        case channelIDs.announcements: {
+            let announcerRole = await fetchRole(message.guild, roleIDs.announcer)
+            console.log(`No more announcer for ${message.member.user.username}`);
+            message.member.roles.remove(announcerRole).catch(console.error);
+            break;
+        }
+        case channelIDs.questions: {
+            let questionRole = await fetchRole(message.guild, roleIDs.question)
+            console.log(`No more questions from ${message.member.user.username}`);
+            message.member.roles.remove(questionRole).catch(console.error);
+            break;
+        }
+    }
 });
 
 async function fetchRole(guild, id)
