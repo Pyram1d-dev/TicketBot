@@ -24,7 +24,7 @@ const commands = [
         .setDescription('Request permission to post a question of the day')
         .addStringOption(option =>
             option.setName('description')
-            .setDescription('What will you ask brudda')
+            .setDescription('What you will ask')
             .setRequired(true)),
     new SlashCommandBuilder()
         .setName('cancelqotdrequest')
