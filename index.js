@@ -65,9 +65,9 @@ function setEmbedStyle(embed, user, reactor, desc, style, reaction, qotd)
     let styleData = embedStyles[style];
     let resultText = styleData.resultText;
     if (user != null)
-        resultText = resultText.replace('{username}', user.username);
+        resultText = resultText.replace('{username}', `<@${user.id}>`);
     if (reactor != null)
-        resultText = resultText.replace('{reactorname}', reactor.username);
+        resultText = resultText.replace('{reactorname}', `<@${reactor.id}>`);
     if (reaction != null)
     {
         let allreactors = "";
@@ -79,7 +79,7 @@ function setEmbedStyle(embed, user, reactor, desc, style, reaction, qotd)
         });
         for (let i = 0; i < coollist.length; i++) {
             const element = coollist[i];
-            allreactors += element.username;
+            allreactors += `<@${element.id}>`;
             if (i + 1 < coollist.length)
             {
                 if (coollist.length != 2)
@@ -96,7 +96,7 @@ function setEmbedStyle(embed, user, reactor, desc, style, reaction, qotd)
     embed.setColor(styleData.color)
         .setTitle(!qotd ? 'Announcement Request' : '⚠ DOMINIC QUESTION REQUEST ⚠')
         .setAuthor({name: user.username, iconURL: user.avatarURL()})
-        .setDescription(`\"${desc}\"\n\`${resultText}\``)
+        .setDescription(`\"${desc}\"\n\n<<${resultText}>>`)
         .setTimestamp(Date.now());
 }
 
@@ -138,16 +138,22 @@ client.on('interactionCreate', async interaction => {
             }
             await interaction.reply({content: `Permission has been requested, please wait... (type /cancelrequest to cancel)\n> \"${desc}\"`, ephemeral: true}).catch(console.error);
             if (qotd && !qotdNonoIDs.includes(user.id)) {
-                new Promise(resolve => setTimeout(resolve, user.id in customQotdAcceptTimes ? customQotdAcceptTimes[user.id] : Math.random() * 50000 + 10000))
+                const accTime = user.id in customQotdAcceptTimes ? customQotdAcceptTimes[user.id] : Math.random() * 50000 + 10000;
+                console.log(`${user.username} is gonna ask "${desc}"`)
+                let tempmsg;
+                channel.send(`<@${user.id}> is gonna ask "${desc}" <t:${Math.floor((Date.now() + accTime) / 1000)}:R>`).then(msg => tempmsg = msg);
+                new Promise(resolve => setTimeout(resolve, accTime))
                     .then(async () => {
-                        interaction.followUp({content: `Your request to ask \"${desc}\" has been approved! <@${user.id}>`, ephemeral: true});
+                        interaction.followUp({content: `Your request to ask "${desc}" has been approved! <@${user.id}>`, ephemeral: true});
                         let daRole = await fetchRole(member.guild, roleIDs.question);
                         member.roles.add(daRole);
+                        if (tempmsg)
+                            tempmsg.delete();
                     }).catch(console.error);
                 break;
             }
             let endedOperation = false;
-            let timestamp = Date.now()
+            const timestamp = Date.now()
             reqTable[user.id] = {timestamp: timestamp};
             const coolEmbed = new MessageEmbed()
                 .setColor(qotd ? '#ffd000' : '#0099ff')
