@@ -175,7 +175,13 @@ client.on('interactionCreate', async interaction => {
             Object.values(voteEmojiData).forEach(data => {
                 names.push(data.name);
             });
-            msg.react(voteEmojis.accept).then(() => msg.react(voteEmojis.decline).then(() => msg.react(voteEmojis.forceAccept).then(() => msg.react(voteEmojis.ban)))).catch(console.error);
+
+            msg.react(voteEmojis.accept)
+                .then(() => msg.react(voteEmojis.decline)
+                .then(() => msg.react(voteEmojis.forceAccept)
+                .then(() => msg.react(voteEmojis.ban))))
+                .catch(console.error);
+
             const filter = (reaction, user) => names.includes(reaction.emoji.name) && !user.bot;
 
             let benTime = 600;
@@ -235,7 +241,7 @@ client.on('interactionCreate', async interaction => {
 
                 let forceAccepted = reaction.emoji.name === voteEmojiData.forceAccept.name;
 
-                if (modCooldowns.has(reactor.id) && Date.now() - modCooldowns.get(reactor.id) <= cooldownHours * 60 * 60 * 1000 && forceAccepted)
+                if (forceAccepted && ((modCooldowns.has(reactor.id) && Date.now() - modCooldowns.get(reactor.id) <= cooldownHours * 60 * 60 * 1000)))
                 {
                     let txt = "seconds";
                     let time = (cooldownHours * 60 * 60 * 1000 - (Date.now() - modCooldowns.get(reactor.id))) / 1000;
